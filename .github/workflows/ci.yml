@@ -1,0 +1,31 @@
+# Quality gates for scion-lite: syntax check + full integration suite on
+# every push and PR. The project has zero third-party dependencies, so there
+# is nothing to install, audit, or build.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+        include:
+          # the author develops on Windows; keep one Windows job honest
+          - os: windows-latest
+            python-version: '3.11'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Syntax check (compileall)
+        run: python -m compileall -q core.py server.py scion.py demo.py test_scion.py
+      - name: Integration tests
+        run: python -m unittest test_scion -v
