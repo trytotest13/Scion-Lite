@@ -1,10 +1,10 @@
 # scion-lite
 
-A miniature **server-side version control system**: a CLI client plus an HTTP
+A miniature server-side version control system: a CLI client plus an HTTP
 server that applies every commit, merge and rebase itself. Built as a portfolio
 exploration of [Anthropic's "Redesigning source control at Anthropic"](https://www.anthropic.com/research/redesigning-source-control)
 (and the [Developers Digest write-up](https://www.developersdigest.tech/blog/anthropic-scion-source-control-git-agents-2026)
-of it). Anthropic's answer to agent-scale development was **Scion**, an
+of it). Anthropic's answer to agent-scale development was Scion, an
 in-house system where *everything happens server-side*. scion-lite is that
 idea at teaching scale: about 1,100 lines of dependency-free Python (client,
 server, tests and demo), a write-ahead log, and a live dashboard.
@@ -16,15 +16,15 @@ server, tests and demo), a write-ahead log, and a live dashboard.
 ## Preview
 
 The live dashboard after two agents (alice and bob) commit against one
-server: fast-forwards, two automatic server-merges, and one rejected
-conflict, all visible at a glance.
+server: three fast-forwards, two automatic server-merges and one rejected
+conflict.
 
 ![scion-lite dashboard: two agents committing, server-merge rows highlighted](docs/screenshots/dashboard.png)
 
 > Anthropic's bet: coding is no longer the bottleneck, source control built
 > for human scale is. Their fix was to stop pretending clients can be
 > offline: *assume the client is online, and ask the server.* scion-lite
-> implements exactly that bet and lets you feel its trade-offs.
+> implements that bet; the trade-offs are spelled out under Design principles.
 
 ## Features
 
@@ -56,7 +56,7 @@ conflict, all visible at a glance.
 - **Live dashboard.** Open the server root in a browser: head, changeset
   count, blob count, conflicts, and the last 15 changesets (with
   `server-merge` vs `fast-forward` flags), polling every 2 s.
-- **Hardened boundaries.** Blob and changeset ids are validated before they
+- **Validated boundaries.** Blob and changeset ids are checked before they
   touch the filesystem, so crafted request paths cannot escape the storage
   directory (regression-tested).
 
@@ -139,9 +139,8 @@ Mirrors of the real Scion design, each a deliberate simplification:
 4. **Refs are discouraged.** There is one ref (`main`). Scion says agents
    barely need branches; scion-lite agrees, for now.
 5. **File-granularity merge.** Simpler than git's line-level 3-way merge; a
-   same-file race is a conflict, not a text merge. *Trade-off is the lesson:*
-   this is where the "merge queue doesn't make sense at agent scale" argument
-   gets real.
+   same-file race is a conflict, not a text merge. *Trade-off:* this is where
+   the "merge queue doesn't make sense at agent scale" argument gets tested.
 
 ## What's simplified vs. the real Scion
 
@@ -149,7 +148,7 @@ No partial clones, no GC, no signing, no horizontal sharding, no line-level
 merges, single process + threading lock (not a distributed coordinator), WAL
 without fsync-per-write. All numbers in Anthropic's post (2,500 → 30,000+
 merges/day, 25 M checkouts/day, 200× footprint reduction) are reported by
-Anthropic and out of scope here: the goal is to make the *architecture*
+Anthropic and out of scope here: the goal is to make the architecture
 testable by hand.
 
 ## Testing
@@ -158,12 +157,13 @@ testable by hand.
 python -m unittest test_scion.py -v
 ```
 
-Seven integration tests drive the real CLI against a real ephemeral server:
-round-trip commit/log/status/diff/pull, staged deletions, automatic
-server-side merge of non-overlapping stale-base commits, conflict → 409 →
-pull → re-commit recovery, WAL head recovery after a simulated crash, and
-rejection of non-hex ids at the storage boundary. CI (`.github/workflows/`)
-runs the same suite on Python 3.9–3.13 plus Windows.
+Seven integration tests boot a server on an ephemeral port and drive the CLI
+through it: commit/log/status/diff/pull round trips, staged deletions,
+automatic server-side merges of non-overlapping stale-base commits, a
+conflict that comes back as 409 and recovers through pull and re-commit,
+WAL head recovery after a simulated crash, and rejection of non-hex ids at
+the storage boundary. CI (`.github/workflows/`) runs the same suite on
+Python 3.9 to 3.13 plus Windows.
 
 ## Roadmap
 
